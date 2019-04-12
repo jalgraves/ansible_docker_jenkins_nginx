@@ -11,6 +11,10 @@ Locally export the domain name for the SSL certificates
 
     export JENKINS_DOMAIN=<your-domain.com>
 
+export the default password for the Jenkins' admin user
+
+    export JENKINS_ADMIN="whateverpasswordyouwant"
+
 Run the playbook
 
     ansible-playbook -b -K main.yml -i hosts
