@@ -1,15 +1,17 @@
 ---
 - hosts: jenkins_server
   vars:
-    domain: "{{ lookup('env', 'JENKINS_DOMAIN') }}"
+    domain: "{{ lookup('env', 'JENKINS_CERT_DOMAIN') }}"
+    email: "{{ lookup('env', 'JENKINS_CERT_EMAIL') }}"
 
   tasks:
-
-  - debug:
-      msg: "DOMAIN {{ domain }}"
-
   - include_tasks: ../docker_network.yml
   - include_tasks: requirements.yml
+
+  - name: Create letsencrypt certificate
+    shell: letsencrypt certonly -n --standalone -m {{ email }} --agree-tos -d {{ domain }}
+    args:
+      creates: /etc/letsencrypt/live/{{ domain }}
 
   - name: Create DH directory
     file: path=/root/docker_nginx_proxy/dhparam state=directory
