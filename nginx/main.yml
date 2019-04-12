@@ -1,0 +1,60 @@
+---
+- hosts: jenkins_server
+  vars:
+    domain: "{{ lookup('env', 'JENKINS_DOMAIN') }}"
+
+  tasks:
+
+  - debug:
+      msg: "DOMAIN {{ domain }}"
+
+  - include_tasks: ../docker_network.yml
+  - include_tasks: requirements.yml
+
+  - name: Create DH directory
+    file: path=/root/docker_nginx_proxy/dhparam state=directory
+
+  - name: Create DH Group
+    command: openssl dhparam -out /root/docker_nginx_proxy/dhparam/{{ domain }}.dhparam.2048.pem 2048
+    async: 1800
+
+  - name: Create NGINX Ansible directory
+    file: path=/root/ansible/nginx state=directory
+
+  - name: Create NGINX docker proxy directory
+    file: path=/etc/docker_nginx_proxy/conf.d state=directory
+
+  - name: Copy NGINX Dockerfile
+    copy: src=./Dockerfile dest=/root/ansible/nginx/Dockerfile
+
+  - template:
+      src: ./conf.d/default
+      dest: /etc/docker_nginx_proxy/conf.d/default
+
+  - name: Build NGINX image
+    docker_image:
+      path: /root/ansible/nginx/
+      name: nginx_proxy_image
+      tag: latest
+
+  - name: Create NGINX reverse proxy
+    docker_container:
+      name: nginx_proxy
+      image: nginx_proxy_image:latest
+      restart_policy: unless-stopped
+      published_ports:
+        - 0.0.0.0:443:443
+      volumes:
+        - /etc/letsencrypt/:/etc/letsencrypt/
+        - /root/docker_nginx_proxy/certs:/root/nginx/certs
+        - /root/docker_nginx_proxy/dhparam:/root/nginx/dhparam
+        - /etc/docker_nginx_proxy/conf.d:/etc/nginx/conf.d
+      networks:
+        - name: bridge
+        - name: backend
+
+  - name: Verify proxy TLS response from host
+    command: >-
+      curl --fail --tlsv1.2 -I -H "Host: {{ domain }}" https://{{ domain }} --resolve "{{ domain }}:443:127.0.0.1"
+    failed_when: result.rc != 0
+    register: result

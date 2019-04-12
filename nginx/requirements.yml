@@ -1,0 +1,6 @@
+---
+- name: Check for openssl
+  command: openssl version
+
+- name: Check for docker existence
+  command: docker --version

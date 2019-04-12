@@ -1,0 +1,27 @@
+---
+- hosts: jenkins_server
+  tasks:
+
+    - include_vars: vars.yml
+
+    - name: Check for swapfile existence
+      stat:
+        path: "{{ swapfile_path }}"
+      register: swapfile_stat
+
+    - name: Disable swapfile
+      command: "swapoff {{ swapfile_path }}"
+      when: swapfile_stat.stat.exists
+
+    - name: Remove swapfile entry from fstab
+      lineinfile:
+        path: /etc/fstab
+        regexp: "{{ swapfile_regex }}"
+        line: "{{ swapfile_path }}  none  swap  sw 0  0"
+        backup: yes
+        state: absent
+
+    - name: Remove swapfile
+      file:
+        path: "{{ swapfile_path }}"
+        state: absent

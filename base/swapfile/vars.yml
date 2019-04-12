@@ -1,0 +1,5 @@
+---
+swapfile_path: "/mnt/1g.swapfile"
+swapfile_regex: "^/mnt/1g\\.swapfile "
+swapfile_blocksize: "1024"
+swapfile_count: "1048576"

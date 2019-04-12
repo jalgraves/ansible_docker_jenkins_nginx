@@ -1,0 +1,6 @@
+location /jenkins/ {
+    proxy_set_header Host $http_host;
+    proxy_set_header X-HTTPS-Protocol $ssl_protocol;
+    proxy_pass      http://jenkins_upstream;
+    proxy_redirect http:// https://;
+}

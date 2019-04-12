@@ -1,0 +1,12 @@
+---
+- name: Check for docker network
+  shell: docker network list
+  register: docker_nets
+
+- name: create docker backend network
+  command: docker network create backend --subnet=192.168.42.0/24 --gateway=192.168.42.1 --ip-range=192.168.42.0/24
+  when: docker_nets.stdout.find(' backend') == -1
+
+- name: create docker milter network
+  command: docker network create milter --subnet=192.168.52.0/24 --gateway=192.168.52.1 --ip-range=192.168.52.0/24
+  when: docker_nets.stdout.find('milter') == -1

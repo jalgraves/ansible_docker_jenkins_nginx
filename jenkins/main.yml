@@ -1,0 +1,99 @@
+---
+- hosts: jenkins_server
+  tasks:
+
+  - include_tasks: ../docker_network.yml
+
+  - name: Create Jenkins Ansible directory
+    file: path=/root/ansible/jenkins state=directory
+
+  - name: Create Jenkins data directory
+    file: path=/data/jenkins state=directory owner=1000
+
+  - name: symlink /var/jenkins_home to /data/jenkins
+    file: src=/data/jenkins dest=/var/jenkins_home state=link
+
+  - name: Copy Jenkins Dockerfile
+    copy: src=./Dockerfile dest=/root/ansible/jenkins/Dockerfile
+
+  - name: Copy Jenkins plugins.txt
+    copy: src=./plugins.txt dest=/root/ansible/jenkins/plugins.txt
+
+  - template:
+      src: ./security.groovy
+      dest: /root/ansible/jenkins/security.groovy
+
+  - name: Build Jenkins image
+    docker_image:
+      path: /root/ansible/jenkins/
+      name: jenkins_image
+      state: present
+      force: yes
+      tag: latest
+  
+  - name: Create Jenkins container  
+    docker_container:
+      name: jenkins
+      image: jenkins_image:latest
+      networks:
+        - name: bridge
+        - name: backend
+      volumes:
+        - /root/ansible/jenkins/security.groovy:/usr/share/jenkins/ref/init.groovy.d/security.groovy
+        - /data/jenkins:/var/jenkins_home
+        - /var/run/docker.sock:/var/run/docker.sock
+
+  - name: Copy jenkins NGINX upstream conf
+    copy: src=./jenkins_upstream.conf dest=/etc/docker_nginx_proxy/conf.d/jenkins_upstream.conf
+
+  - name: Copy jenkins NGINX location block into default.conf
+    blockinfile:
+      block: "{{ lookup('file', './jenkins_location.conf.stub') }}"
+      dest: /etc/docker_nginx_proxy/conf.d/default.conf
+      marker: "# {mark} ANSIBLE MANAGED BLOCK jenkins_location"
+      insertbefore: "^.*location / .*"
+
+  - name: sleep for 10 seconds while Jenkins loads
+    wait_for: timeout=10
+
+  - name: Stop and remove container 
+    docker_container:
+      name: jenkins
+      state: absent
+
+  - name: Create Jenkins container without security script
+    docker_container:
+      name: jenkins
+      image: jenkins_image:latest
+      restart_policy: unless-stopped
+      networks:
+        - name: bridge
+        - name: backend
+          ipv4_address: 192.168.42.44
+      volumes:
+        - /root/.docker/config.json:/var/jenkins_home/.docker/config.json:ro
+        - /code:/code:ro
+        - /data/jenkins:/var/jenkins_home
+        - /var/run/docker.sock:/var/run/docker.sock
+
+  - name: NGINX graceful reload
+    shell: docker exec nginx_proxy /bin/sh -c "kill -SIGHUP \$(ps | awk '(\$2 == \"root\" && \$4 == \"nginx:\"){ print \$1; }')"
+
+  - name: Get Docker images
+    shell: docker images -q
+    register: docker_images
+
+  - name: Check Jenkins container Docker connectivity
+    shell: docker exec jenkins docker images -q
+    register: container_images
+    failed_when: docker_images.stdout != container_images.stdout
+
+  - name: Remove Jenkins security init scripts from host.
+    file:
+      path: "{{ item }}"
+      state: absent
+    with_items:
+      - /data/jenkins/init.groovy.d/security.groovy
+      - /root/ansible/jenkins/security.groovy
+
+

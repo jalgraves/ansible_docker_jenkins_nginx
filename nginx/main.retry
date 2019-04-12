@@ -1,0 +1,1 @@
+{{ lookup('env', 'JENKINS_SERVER') }}

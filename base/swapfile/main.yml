@@ -1,0 +1,41 @@
+---
+- hosts: jenkins_server
+  tasks:
+
+    - include_tasks: ../../server_ready.yml
+    - include_vars: vars.yml
+
+    - name: Get list of known swapfiles
+      command: swapon --show=NAME --noheadings
+      register: swapon_files
+
+    - name: Create empty swapfile using dd
+      command: "dd if=/dev/zero of={{ swapfile_path }} bs={{ swapfile_blocksize }} count={{ swapfile_count }}"
+      when: swapfile_path not in swapon_files.stdout
+
+    - name: Set swapfile permissions
+      file:
+        path: "{{ swapfile_path }}"
+        mode: 600
+      when: swapfile_path not in swapon_files.stdout
+
+    - name: Format swapfile
+      command: "mkswap {{ swapfile_path }}"
+      when: swapfile_path not in swapon_files.stdout
+
+    - name: Enable swapfile
+      command: "swapon {{ swapfile_path }}"
+      when: swapfile_path not in swapon_files.stdout
+
+    - name: Add swapfile entry to fstab
+      lineinfile:
+        path: /etc/fstab
+        regexp: "{{ swapfile_regex }}"
+        line: "{{ swapfile_path }}  none  swap  sw 0  0"
+        backup: yes
+        state: present
+
+    - name: Verify swapfile in list
+      command: swapon --show=NAME --noheadings
+      register: swapon_files_post
+      failed_when: swapfile_path not in swapon_files_post.stdout

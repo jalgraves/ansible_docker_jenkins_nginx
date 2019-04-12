@@ -1,0 +1,8 @@
+---
+- hosts: jenkins_server
+
+- import_playbook: dist-upgrade/main.yml
+- import_playbook: base/main.yml
+- import_playbook: nginx/main.yml
+- import_playbook: jenkins/main.yml
+

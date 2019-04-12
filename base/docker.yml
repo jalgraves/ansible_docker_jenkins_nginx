@@ -1,0 +1,44 @@
+---
+- name: Install packages to allow apt to use a repository over HTTPS
+  apt:
+    name: apt-transport-https
+    state: present
+    update_cache: yes
+
+- name: Install software-properties-common
+  apt:
+    name: software-properties-common
+    state: present
+
+- name: Import Docker CE repository gpg key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+    id: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+
+- name: Add Docker CE repository
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
+    state: present
+    update_cache: yes
+
+- name: Install Docker CE
+  apt:
+    name: docker-ce
+    state: present
+    update_cache: yes
+
+- name: Install Docker-Compose
+  apt:
+    name: docker-compose
+    state: present
+
+- name: install bash_completion for docker
+  get_url:
+    url: https://raw.githubusercontent.com/docker/cli/master/contrib/completion/bash/docker
+    dest: /etc/bash_completion.d/docker
+
+- name: install bash_completion for docker-compose
+  get_url: 
+    url: https://raw.githubusercontent.com/docker/compose/master/contrib/completion/bash/docker-compose
+    dest: /etc/bash_completion.d/docker-compose
